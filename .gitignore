@@ -1,0 +1,14 @@
+# Pastas geradas em tempo de execução (não fazem parte do código-fonte)
+servidor_storage/
+cliente_storage/
+
+# Cache do Python
+__pycache__/
+*.pyc
+
+# Arquivos de teste locais
+teste.txt
+teste.jpg
+
+# VS Code
+.vscode/
