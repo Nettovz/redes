@@ -26,18 +26,25 @@ def main():
     sock.settimeout(10)  # evita ficar travado indefinidamente esperando resposta
 
     try:
-        #Envia o arquivo ao servidor
+        # 1. Envia o arquivo ao servidor
         filename, original_data = send_file(sock, server_addr, filepath, log_prefix="[CLIENTE][ENVIA]")  # lê o arquivo do disco e envia fragmentado ao servidor
 
-        # 2Aguarda a devolução do servidor (confirmação)
+        # 2. Aguarda a devolução do servidor (confirmação) e valida se o nome devolvido bate com o enviado
         returned_name, returned_data, _ = receive_bytes(sock, log_prefix="[CLIENTE][RECEBE]")  # bloqueia até o servidor remontar e devolver o arquivo
+
+        if returned_name is None:
+            print("[CLIENTE][ERRO] Servidor não devolveu o arquivo a tempo.")
+            sys.exit(1)
+
+        if os.path.basename(returned_name) != os.path.basename(filename):
+            print(f"[CLIENTE][AVISO] Nome devolvido difere: {returned_name} != {filename}")
 
         # 3. Salva a cópia recebida com prefixo "cliente_"
         local_name = f"cliente_{returned_name}"                         # gera o nome local, prefixado (o nome recebido já vem com "servidor_" também)
         saved_path = save_bytes(STORAGE_DIR, local_name, returned_data)  # grava a cópia devolvida em disco, dentro de cliente_storage/
         print(f"[CLIENTE] Confirmação salva em: {saved_path}")          # log confirmando onde a cópia foi salva
 
-        # Verificação simples de integridade
+        # 4. Verificação simples de integridade
         if returned_data == original_data:  # compara byte a byte o que foi enviado com o que voltou
             print("[CLIENTE] Sucesso: conteúdo devolvido é idêntico ao enviado.")  # tudo certo, a transferência foi íntegra
         else:
