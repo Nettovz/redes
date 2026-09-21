@@ -11,6 +11,7 @@ def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_PORT #definicao da porta, caso o comando do terminal nao tiver a porta, usaremos a porta 500
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((HOST, port)) #associacao do host (qualquer ip do pc) + porta 
+    sock.settimeout(10)  # evita travar para sempre se um pacote se perder
     print(f"executando o servidor em [{HOST}:{port}]")
     print(f"Os arquivos serão salvos em {STORAGE_DIR}")
 
@@ -18,15 +19,18 @@ def main():
 
         try: #receber o arquivo do cliente
             filename, data, client_addr = receive_bytes(sock, log_prefix = "[SERVIDOR][RECEBE]") #funcao feita no udp_protocol
+
+            if filename is None:
+                print("[SERVIDOR] Nada recebido (timeout).")
+                continue
+            
             stored_name = f"servidor_{filename}"
             stored_path = save_bytes(STORAGE_DIR, stored_name, data)  #funcao feita no udp_protocol
-
-            print(f"[SERVIDOR] Arquivo salvo em disco: {stored_path}")
 
             print(f"[SERVIDOR] Arquivo salvo em disco: {stored_path}")  # log confirmando onde o arquivo foi salvo
  
             # 3. Devolve o arquivo armazenado ao cliente, para confirmar o recebimento
-            send_bytes(sock, client_addr, stored_name, data, log_prefix="[SERVIDOR][ENVIA]")  # reenvia o mesmo conteúdo de volta pro endereço do cliente que mandou
+            send_bytes(sock, client_addr, filename, data, log_prefix="[SERVIDOR][ENVIA]")  # reenvia o mesmo conteúdo de volta pro endereço do cliente que mandou
 
         except KeyboardInterrupt:               # se o usuário apertar Ctrl+C no terminal do servidor
             print("\n[SERVIDOR] Encerrando.")   # log de encerramento limpo
