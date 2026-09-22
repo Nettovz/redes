@@ -19,11 +19,6 @@ def main():
 
         try: #receber o arquivo do cliente
             filename, data, client_addr = receive_bytes(sock, log_prefix = "[SERVIDOR][RECEBE]") #funcao feita no udp_protocol
-
-            if filename is None:
-                print("[SERVIDOR] Nada recebido (timeout).")
-                continue
-            
             stored_name = f"servidor_{filename}"
             stored_path = save_bytes(STORAGE_DIR, stored_name, data)  #funcao feita no udp_protocol
 
