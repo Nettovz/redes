@@ -32,10 +32,6 @@ def main():
         # 2. Aguarda a devolução do servidor (confirmação) e valida se o nome devolvido bate com o enviado
         returned_name, returned_data, _ = receive_bytes(sock, log_prefix="[CLIENTE][RECEBE]")  # bloqueia até o servidor remontar e devolver o arquivo
 
-        if returned_name is None:
-            print("[CLIENTE][ERRO] Servidor não devolveu o arquivo a tempo.")
-            sys.exit(1)
-
         if os.path.basename(returned_name) != os.path.basename(filename):
             print(f"[CLIENTE][AVISO] Nome devolvido difere: {returned_name} != {filename}")
 
