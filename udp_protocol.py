@@ -38,19 +38,10 @@ def send_file(sock, addr, filepath ,log_prefix = "[ENVIO]"): #Lê um arquivo do 
 
 
 def receive_bytes(sock, log_prefix="[RECEBIMENTO]"): #Receber os pedaços que vieram pela rede e reconstruir o arquivo original.
-    try:
-        packet, addr = sock.recvfrom(PACKET_SIZE + 64)
-    except socket.timeout:
-        print(f"{log_prefix} Timeout aguardando metadados.")
-        return None, None, None
+    packet, addr = sock.recvfrom(PACKET_SIZE + 64)
 
     while packet[0:1] != b"M":
-        try:
-            packet, addr = sock.recvfrom(PACKET_SIZE + 64)
-        except socket.timeout:
-            print(f"{log_prefix} Timeout aguardando metadados.")
-            return None, None, None
-
+        packet, addr = sock.recvfrom(PACKET_SIZE + 64)
 
     meta = json.loads(packet[1:].decode("utf-8"))   # remove o byte 'M' (packet[1:]), decodifica de bytes pra string e faz o parse do JSON
     filename = meta["filename"]                     # extrai o nome do arquivo do dicionário de metadados
@@ -61,13 +52,7 @@ def receive_bytes(sock, log_prefix="[RECEBIMENTO]"): #Receber os pedaços que vi
 
     chunks = {}                                      # dicionário {número_de_sequência: bytes_do_pedaço}, pra remontar na ordem certa depois
     while len(chunks) < total_chunks:                # continua recebendo até já ter todos os pedaços esperados
-        try:
-            packet, sender = sock.recvfrom(PACKET_SIZE + 64)  # espera o próximo pacote UDP chegar
-        except socket.timeout:                       # se o tempo definido em settimeout() estourar sem pacote novo
-            faltam = total_chunks - len(chunks)      # calcula quantos pedaços ainda faltam pra completar o arquivo
-            print(f"{log_prefix} Timeout aguardando pacote. Faltam {faltam} de {total_chunks}.")  # loga o aviso com a contagem
-            break                                    # sai do loop e remonta só o que já chegou (sem travar o programa)
-            
+        packet, sender = sock.recvfrom(PACKET_SIZE + 64)  # espera o próximo pacote UDP chegar
         if sender != addr:                           # se veio de outro endereço (outro cliente concorrente, por exemplo)
             continue                                  # ignora esse pacote e volta a esperar — não pertence a esta transferência
         if packet[0:1] != b"D":                       # se o primeiro byte não for 'D', não é um pacote de dados válido
