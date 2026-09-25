@@ -2,7 +2,14 @@
 
 **Disciplina:** CIN0018 - Fundamentos de Redes de Computadores
 **Docente:** Renato Mariz de Moraes
-**Integrantes:** _(preencher)_
+
+  **Integrantes:**
+- Deoclecio Ivo de Melo Netto
+- Eduardo Gabriel de Souza Pedroza
+- Jefferson Pereira de Oliveira Junior
+- Pedro Gabriel Alves da Silva
+
+
 
 ## Descrição
 
