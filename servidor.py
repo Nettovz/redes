@@ -4,7 +4,7 @@ import os
 from udp_protocol import receive_bytes, save_bytes, send_bytes
 
 HOST = "0.0.0.0" #permite que o cliente possa acessar o servidor (receber dados) por qualquer ip dessa maquina
-DEFAULT_PORT = 500  # porta padrão utilizada pelo servidor para receber os dados
+DEFAULT_PORT = 5000  # porta padrão utilizada pelo servidor para receber os dados
 
 STORAGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "servidor_storage")  # calcula e guarda o caminho da pasta (ao lado de servidor.py); a pasta em si só é criada depois, em save_bytes() no arquivo udp protocol
 def main():
@@ -20,8 +20,6 @@ def main():
             filename, data, client_addr = receive_bytes(sock, log_prefix = "[SERVIDOR][RECEBE]") #funcao feita no udp_protocol
             stored_name = f"servidor_{filename}"
             stored_path = save_bytes(STORAGE_DIR, stored_name, data)  #funcao feita no udp_protocol
-
-            print(f"[SERVIDOR] Arquivo salvo em disco: {stored_path}")
 
             print(f"[SERVIDOR] Arquivo salvo em disco: {stored_path}")  # log confirmando onde o arquivo foi salvo
  
