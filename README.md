@@ -110,3 +110,10 @@ padrão.
   confiabilidade, arquivos muito grandes (vários MB) têm risco de travar
   esperando um pacote perdido que nunca chega (o timeout de 10s no
   cliente evita que ele fique preso indefinidamente).
+
+  **Integrantes:**
+- Deoclecio Ivo de Melo Netto
+- Eduardo Gabriel de Souza Pedroza
+- Jefferson Pereira de Oliveira Junior
+- Pedro Gabriel Alves da Silva
+
