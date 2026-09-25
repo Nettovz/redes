@@ -24,7 +24,7 @@ def send_bytes(sock, addr, filename, data,log_prefix = "[ENVIO]"): #Vamos fragme
         header = b"D" + struct.pack("!I", seq)        # cabeçalho do pacote de dados: 1 byte 'D' + número de sequência em 4 bytes big-endian
         sock.sendto(header + chunk, addr)             # envia o pacote UDP: cabeçalho + pedaço de dados, pro endereço de destino
 
-        print(f"{log_prefix} Envio de '{filename}' concluído ({total_pacotes} pacotes).") #p falar que enviou
+    print(f"{log_prefix} Envio de '{filename}' concluído ({total_pacotes} pacotes).") #p falar que enviou
 
 
 def send_file(sock, addr, filepath ,log_prefix = "[ENVIO]"): #Lê um arquivo do disco e envia via send_bytes, usando o nome base do arquivo.
