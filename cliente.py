@@ -1,53 +1,64 @@
-import socket  # biblioteca padrão pra criar sockets (aqui, um socket UDP)
-import sys     # usado pra ler os argumentos da linha de comando (arquivo, host, porta)
-import os      # usado pra montar caminhos e checar se o arquivo existe
+import os
+import socket
+import sys
 
-from udp_protocol import send_file, receive_bytes, save_bytes  # importa as funções de protocolo já implementadas
+import rdt
 
-DEFAULT_HOST = "127.0.0.1"  # host padrão do servidor, caso não seja informado (localhost)
-DEFAULT_PORT = 5000          # porta padrão do servidor, caso não seja informada
-STORAGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cliente_storage")  # caminho absoluto de cliente_storage/
+DEFAULT_HOST = "127.0.0.1" #ip padrao, caso o cliente nao colocar
+DEFAULT_PORT = 5000 #porta padrao, caso o cliente nao colocar
+STORAGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cliente_storage") #criar a pasta que fica o arquivo enviado
+DEFAULT_LOSS = 0.2 #definicao de taxa de perda de pacote para teste caso o cliente nao fornecer
+DEFAULT_CORRUPT = 0.1 #definicao de taxa de pacotes que sao corrompidos caso o cliente nao fornecer
+DEFAULT_TIMER = 0.3 #definicao do temporizador inicial
 
 def main():
-    if len(sys.argv) < 2:  # o único argumento obrigatório é o caminho do arquivo a enviar
-        print("Uso: python cliente.py <caminho_do_arquivo> [host_servidor] [porta_servidor]")  # instrução de uso, se faltou argumento
-        sys.exit(1)  
 
-    filepath = sys.argv[1]                                      # primeiro argumento: caminho do arquivo a ser enviado
+    if len(sys.argv) < 2: #debug
+        print("Uso: python cliente.py arquivo [host] [porta] [loss] [corrupt] [timeout]")
+        sys.exit(1)
+
+    arquivo = sys.argv[1] # primeiro argumento do terminal: caminho do arquivo a ser enviado
     host = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_HOST    # segundo argumento (opcional): host do servidor
-    port = int(sys.argv[3]) if len(sys.argv) > 3 else DEFAULT_PORT  # terceiro argumento (opcional): porta do servidor
+    porta = int(sys.argv[3]) if len(sys.argv) > 3 else DEFAULT_PORT  # terceiro argumento (opcional): porta do servidor
+    loss = float(sys.argv[4]) if len(sys.argv) > 4 else DEFAULT_LOSS  # quarto argumento (opcional): taxa de perda
+    corrupt = float(sys.argv[5]) if len(sys.argv) > 5 else DEFAULT_CORRUPT  # quinto argumento (opcional):taxa de pacotes corrompidos
+    timeout = float(sys.argv[6]) if len(sys.argv) > 6 else DEFAULT_TIMER  # sexto argumento (opcional): temporizador
+    
+    rdt.set_channel(loss, corrupt, timeout) #funcao criada no rdt.py para configurar o canal de comunicação simulado usado pelo protocolo RDT
 
-    if not os.path.isfile(filepath):  # confere se o caminho informado nao aponta pra um arquivo existente
-        print(f"[CLIENTE][ERRO] Arquivo não encontrado: {filepath}")  # avisa o usuário se o arquivo não existe
-        sys.exit(1)  # encerra o programa com código de erro
+  
+    if not os.path.isfile(arquivo): #debug caso nao encontrar o arquivo
+        print(f"[CLIENTE][ERRO] Arquivo não encontrado: {arquivo}")
+        sys.exit(1)
 
-    server_addr = (host, port)                                # monta a tupla (ip, porta) usada pelo socket como destino
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)   # cria o socket: AF_INET = IPv4, SOCK_DGRAM = UDP
-    sock.settimeout(10)  # evita ficar travado indefinidamente esperando resposta
+    server_addr = (host, porta) # monta a tupla (ip, porta) usada pelo socket como destino
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # cria o socket: AF_INET = IPv4, SOCK_DGRAM = UDP
+
+    print(f"[CLIENTE] Servidor: {server_addr} (perda={loss:.0%}, "f"corrupção={corrupt:.0%}, timeout={timeout}s)")
 
     try:
-        #Envia o arquivo ao servidor
-        filename, original_data = send_file(sock, server_addr, filepath, log_prefix="[CLIENTE][ENVIA]")  # lê o arquivo do disco e envia fragmentado ao servidor
+        _, original = rdt.send_file(sock, server_addr, arquivo, "[CLIENTE][ENVIA]")  # lê o arquivo do disco e envia fragmentado ao servidor
 
-        # 2Aguarda a devolução do servidor (confirmação)
-        returned_name, returned_data, _ = receive_bytes(sock, log_prefix="[CLIENTE][RECEBE]")  # bloqueia até o servidor remontar e devolver o arquivo
+        print("[CLIENTE] Aguardando devolução do arquivo pelo servidor...")
+        returned_name, returned_data, _ = rdt.recv_bytes(sock, "[CLIENTE][RECEBE]", addr=server_addr, first_timeout=30, timeout=10) # Função que realiza a montagem dos pacotes usando bit alternado e tratamento de pacotes duplicados.
 
-        # 3. Salva a cópia recebida com prefixo "cliente_"
-        local_name = f"cliente_{returned_name}"                         # gera o nome local, prefixado (o nome recebido já vem com "servidor_" também)
-        saved_path = save_bytes(STORAGE_DIR, local_name, returned_data)  # grava a cópia devolvida em disco, dentro de cliente_storage/
-        print(f"[CLIENTE] Confirmação salva em: {saved_path}")          # log confirmando onde a cópia foi salva
+        local_name = f"cliente_{returned_name}"   # gera o nome local, prefixado (o nome recebido já vem com "servidor_" também)
+        saved = rdt.save_bytes(STORAGE_DIR, local_name, returned_data) # grava a cópia devolvida em disco, dentro de cliente_storage/
+        print(f"[CLIENTE] Cópia devolvida salva em: {saved}")# log confirmando onde a cópia foi salva
 
-        # Verificação simples de integridade
-        if returned_data == original_data:  # compara byte a byte o que foi enviado com o que voltou
-            print("[CLIENTE] Sucesso: conteúdo devolvido é idêntico ao enviado.")  # tudo certo, a transferência foi íntegra
+          # Verificação simples de integridade
+        if returned_data == original:  # compara byte a byte o que foi enviado com o que voltou
+            print("[CLIENTE] Sucesso: conteúdo devolvido é idêntico ao enviado.") # tudo certo, a transferência foi íntegra
         else:
-            print("[CLIENTE][AVISO] Conteúdo devolvido difere do original!")  # algo se perdeu/corrompeu no caminho
+            print("[CLIENTE][AVISO] Conteúdo devolvido difere do original!") # algo se perdeu/corrompeu no caminho
+            sys.exit(2)
 
-    except socket.timeout:  # se passar o tempo definido em sock.settimeout(10) sem resposta do servidor
-        print("[CLIENTE][ERRO] Tempo esgotado aguardando resposta do servidor.")  # avisa o usuário que o servidor não respondeu a tempo
+    except (socket.timeout, ConnectionError) as e:  # Captura erros de timeout ou de conexão durante a transferência
+        print(f"[CLIENTE][ERRO] Falha na transferência: {e}")
+        sys.exit(1)
     finally:
-        sock.close()  # fecha o socket de qualquer forma, com ou sem erro, liberando o recurso do sistema
+        sock.close() #fecha socket
 
 
-if __name__ == "__main__":  # só executa main() se este arquivo for rodado diretamente (python cliente.py), não se for importado
+if __name__ == "__main__":
     main()

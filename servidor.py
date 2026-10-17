@@ -1,39 +1,50 @@
-import socket 
-import sys
 import os
-from udp_protocol import receive_bytes, save_bytes, send_bytes
+import socket
+import sys
 
-HOST = "0.0.0.0" #permite que o cliente possa acessar o servidor (receber dados) por qualquer ip dessa maquina
-DEFAULT_PORT = 5000  # porta padrão utilizada pelo servidor para receber os dados
+import rdt
 
-STORAGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "servidor_storage")  # calcula e guarda o caminho da pasta (ao lado de servidor.py); a pasta em si só é criada depois, em save_bytes() no arquivo udp protocol
+HOST = "0.0.0.0"  #permite que o cliente acesse o servidor por qualquer ip da maquina
+DEFAULT_PORT = 5000  #porta padrao, caso nao for informada
+DEFAULT_LOSS = 0.2  #taxa de perda de pacote, caso nao for informada
+DEFAULT_CORRUPT = 0.1  #taxa de pacotes corrompidos, caso nao for informada
+DEFAULT_TIMER = 0.3  #temporizador padrao, caso nao for informado
+STORAGE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "servidor_storage")  #pasta onde ficam os arquivos recebidos
+
+
 def main():
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_PORT #definicao da porta, caso o comando do terminal nao tiver a porta, usaremos a porta 500
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind((HOST, port)) #associacao do host (qualquer ip do pc) + porta 
-    print(f"executando o servidor em [{HOST}:{port}]")
-    print(f"Os arquivos serão salvos em {STORAGE_DIR}")
+    porta = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_PORT  #primeiro argumento (opcional): porta
+    loss = float(sys.argv[2]) if len(sys.argv) > 2 else DEFAULT_LOSS  #segundo argumento (opcional): taxa de perda
+    corrupt = float(sys.argv[3]) if len(sys.argv) > 3 else DEFAULT_CORRUPT  #terceiro argumento (opcional): taxa de corrupcao
+    timeout = float(sys.argv[4]) if len(sys.argv) > 4 else DEFAULT_TIMER  #quarto argumento (opcional): temporizador
 
-    while True: #loop de funcionamento do servidor, sempre executa ate o comando do  "ctrl + c" 
+    rdt.set_channel(loss, corrupt, timeout)  #configura o canal simulado no rdt.py
 
-        try: #receber o arquivo do cliente
-            filename, data, client_addr = receive_bytes(sock, log_prefix = "[SERVIDOR][RECEBE]") #funcao feita no udp_protocol
-            stored_name = f"servidor_{filename}"
-            stored_path = save_bytes(STORAGE_DIR, stored_name, data)  #funcao feita no udp_protocol
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  #AF_INET = IPv4, SOCK_DGRAM = UDP
+    sock.bind((HOST, porta))  #associa o socket ao ip da maquina + porta
+    print(f"[SERVIDOR] Executando em {HOST}:{porta} "
+          f"(perda={loss:.0%}, corrupção={corrupt:.0%}, timeout={timeout}s)")
+    print(f"[SERVIDOR] Arquivos serão salvos em {STORAGE_DIR}")
 
-            print(f"[SERVIDOR] Arquivo salvo em disco: {stored_path}")  # log confirmando onde o arquivo foi salvo
- 
-            # 3. Devolve o arquivo armazenado ao cliente, para confirmar o recebimento
-            send_bytes(sock, client_addr, stored_name, data, log_prefix="[SERVIDOR][ENVIA]")  # reenvia o mesmo conteúdo de volta pro endereço do cliente que mandou
+    while True:  #loop do servidor, roda ate o Ctrl+C
+        try:
+            print("\n[SERVIDOR] Aguardando cliente...")
+            filename, data, client_addr = rdt.recv_bytes(sock, "[SERVIDOR][RECEBE]", first_timeout=None)  #recebe com RDT 3.0
+            stored_name = f"servidor_{filename}"  #prefixo servidor_
+            stored_path = rdt.save_bytes(STORAGE_DIR, stored_name, data)  #grava em servidor_storage/
+            print(f"[SERVIDOR] Arquivo salvo em disco: {stored_path}")
 
-        except KeyboardInterrupt:               # se o usuário apertar Ctrl+C no terminal do servidor
-            print("\n[SERVIDOR] Encerrando.")   # log de encerramento limpo
-            break                                # sai do loop infinito e o programa termina
-        except Exception as e:                  # qualquer outro erro inesperado durante uma transferência (ex: pacote corrompido)
-            print(f"[SERVIDOR][ERRO] {e}")      # loga o erro, mas NÃO derruba o servidor — volta pro início do while e continua escutando
- 
- 
-if __name__ == "__main__":  # só executa main() se este arquivo for rodado diretamente (python servidor.py), não se for importado
+            print("[SERVIDOR] Devolvendo arquivo ao cliente...")
+            rdt.send_bytes(sock, client_addr, stored_name, data, "[SERVIDOR][ENVIA]")  #devolve o arquivo com RDT 3.0
+            print("[SERVIDOR] Transferência completa.")
+        except KeyboardInterrupt:  #Ctrl+C
+            print("\n[SERVIDOR] Encerrando.")
+            break
+        except (socket.timeout, ConnectionError) as e:  #transferencia falhou, aborta e volta a escutar
+            print(f"[SERVIDOR][ERRO] Transferência abortada: {e}")
+        except Exception as e:  #qualquer outro erro nao derruba o servidor
+            print(f"[SERVIDOR][ERRO] {e}")
+
+
+if __name__ == "__main__":
     main()
- 
-
