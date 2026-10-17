@@ -30,26 +30,63 @@ canal e **logs detalhados** em tempo de execução.
 
 Requer Python 3 (somente biblioteca padrão). Use **dois terminais** na pasta do projeto.
 
+Os parâmetros são **posicionais** (não existem flags como `--loss`): a ordem importa e,
+para informar um parâmetro, é preciso informar todos os que vêm antes dele.
+
 **Terminal 1 — servidor:**
 ```bash
-python servidor.py 5000 --loss 0.3 --corrupt 0.1 --timeout 0.3
+python servidor.py [porta] [loss] [corrupt] [timeout]
+```
+```bash
+python servidor.py 5000 0.3 0.1 0.3
 ```
 
 **Terminal 2 — cliente:**
 ```bash
-python cliente.py caminho/do/arquivo.pdf 127.0.0.1 5000 --loss 0.3 --corrupt 0.1 --timeout 0.3
+python cliente.py arquivo [host] [porta] [loss] [corrupt] [timeout]
+```
+```bash
+python cliente.py caminho/do/arquivo.pdf 127.0.0.1 5000 0.3 0.1 0.3
 ```
 
-Parâmetros (todos opcionais; padrões: porta `5000`, host `127.0.0.1`,
-`--loss 0.3`, `--corrupt 0.1`, `--timeout 0.3`):
+### Parâmetros
 
-- `--loss`: probabilidade (0 a 1) de **perder** cada pacote enviado (dados, ACK e NAK).
-- `--corrupt`: probabilidade (0 a 1) de **corromper** cada pacote enviado (provoca NAK).
-- `--timeout`: tempo, em segundos, que o remetente espera o ACK antes de retransmitir.
+| Posição (servidor) | Posição (cliente) | Parâmetro | Obrigatório | Padrão | Descrição |
+|---|---|---|---|---|---|
+| — | 1 | `arquivo` | **sim** | — | Caminho do arquivo a ser enviado. |
+| — | 2 | `host` | não | `127.0.0.1` | IP do servidor. |
+| 1 | 3 | `porta` | não | `5000` | Porta UDP do servidor. |
+| 2 | 4 | `loss` | não | `0.2` | Probabilidade (0 a 1) de **perder** cada pacote enviado (dados, ACK e NAK). |
+| 3 | 5 | `corrupt` | não | `0.1` | Probabilidade (0 a 1) de **corromper** cada pacote enviado (provoca NAK). |
+| 4 | 6 | `timeout` | não | `0.3` | Tempo, em segundos, que o remetente espera o ACK antes de retransmitir. |
 
-Cliente e servidor aplicam a perda cada um no que enviam. Para um canal sem
-falhas use `--loss 0 --corrupt 0`. Dica: com perda alta, use arquivos de até
-algumas centenas de KB e `--timeout` menor (ex.: `0.05`) em testes locais.
+Exemplos:
+
+```bash
+# Tudo padrão (servidor na porta 5000, perda 20%, corrupção 10%, timeout 0.3 s)
+python servidor.py
+python cliente.py foto.jpg
+
+# Canal sem falhas
+python servidor.py 5000 0 0
+python cliente.py foto.jpg 127.0.0.1 5000 0 0
+
+# Perda alta, timeout menor para acelerar testes locais
+python servidor.py 5000 0.4 0.1 0.05
+python cliente.py arquivo.pdf 127.0.0.1 5000 0.4 0.1 0.05
+
+# Servidor em outra máquina da rede
+python cliente.py arquivo.zip 192.168.0.10 5000
+```
+
+Cliente e servidor aplicam a perda cada um no que enviam, então os valores de `loss`,
+`corrupt` e `timeout` podem (e costumam) ser informados nos dois lados. Dica: com perda
+alta, use arquivos de até algumas centenas de KB e `timeout` menor (ex.: `0.05`) em
+testes locais.
+
+Se o `arquivo` não existir, o cliente encerra com a mensagem `[CLIENTE][ERRO] Arquivo não encontrado`.
+Se `python cliente.py` for chamado sem argumentos, é exibido o uso:
+`Uso: python cliente.py arquivo [host] [porta] [loss] [corrupt] [timeout]`.
 
 ## Protocolo
 
